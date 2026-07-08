@@ -90,7 +90,6 @@ function Load-Config {
         LastFolder  = Join-Path $env:USERPROFILE "Downloads"
         WindowSize  = @{ Width = 800; Height = 600 }
         WindowPos   = @{ Left = 100; Top = 100 }
-        AlwaysOnTop = $false
     }
 }
 
@@ -99,33 +98,8 @@ function Save-Config {
         LastFolder  = $TxtFolder.Text
         WindowSize  = @{ Width = $Window.Width; Height = $Window.Height }
         WindowPos   = @{ Left = $Window.Left; Top = $Window.Top }
-        AlwaysOnTop = $ChkAlwaysOnTop.IsChecked
     }
     $config | ConvertTo-Json | Set-Content $script:ConfigPath -Force
-}
-
-function Add-History {
-    param([string]$url, [string]$title)
-    $history = @()
-    if (Test-Path $script:HistoryPath) {
-        try {
-            $history = Get-Content $script:HistoryPath -Raw | ConvertFrom-Json
-            if ($history -isnot [System.Array]) { $history = @($history) }
-        }
-        catch {
-            $history = @()
-        }
-    }
-    $history += @{
-        Url   = $url
-        Title = $title
-        Date  = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
-    }
-    # Keep last 50 items
-    if ($history.Count -gt 50) {
-        $history = $history[-50..-1]
-    }
-    $history | ConvertTo-Json | Set-Content $script:HistoryPath -Force
 }
 
 # ==============================================================================
@@ -671,7 +645,6 @@ $MainXaml = @"
                     <TextBlock x:Name="TxtDuration" FontSize="14" Foreground="#AAAAAA" Margin="0,0,0,5"/>
                     <TextBlock x:Name="TxtUploadDate" FontSize="14" Foreground="#AAAAAA" Margin="0,0,0,5"/>
                     <TextBlock x:Name="TxtFileSize" FontSize="14" Foreground="#AAAAAA" Margin="0,0,0,5"/>
-                    <Button x:Name="BtnCopyTitle" Content="Copy Title" HorizontalAlignment="Left" Margin="0,10,0,0"/>
                 </StackPanel>
             </Border>
 
@@ -707,35 +680,8 @@ $MainXaml = @"
         <!-- Status Bar -->
         <Grid Grid.Row="4" Margin="0,20,0,0">
             <TextBlock x:Name="TxtStatusBar" Text="Status: Idle" Foreground="#AAAAAA"/>
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                <CheckBox x:Name="ChkAlwaysOnTop" Content="Always on Top" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                <Button x:Name="BtnHistory" Content="History" Margin="0,0,5,0"/>
-            </StackPanel>
+
         </Grid>
-    </Grid>
-</Window>
-"@
-
-
-$HistoryXaml = @"
-<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Download History" Height="400" Width="500"
-        Background="#121212" Foreground="#E0E0E0"
-        WindowStartupLocation="CenterOwner" ResizeMode="NoResize">
-    $ResourceXaml
-    <Grid Margin="20">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
-        </Grid.RowDefinitions>
-        <TextBlock Grid.Row="0" Text="Download History" FontSize="20" FontWeight="Bold" Margin="0,0,0,20"/>
-        <ListBox x:Name="LstHistory" Grid.Row="1" Margin="0,0,0,20" Background="#1E1E1E" Foreground="#E0E0E0"/>
-        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
-            <Button x:Name="BtnClearHistory" Content="Clear History" Margin="0,0,10,0"/>
-            <Button x:Name="BtnCloseHistory" Content="Close"/>
-        </StackPanel>
     </Grid>
 </Window>
 "@
@@ -780,51 +726,6 @@ $script:DownloadHandle = $null
 $script:DownloadPS = $null
 
 # ==============================================================================
-# Dialog Functions
-# ==============================================================================
-
-
-function Show-HistoryDialog {
-    $dialog = Convert-XamlToObject $HistoryXaml
-    $dialog.Owner = $Window
-    
-    $history = @()
-    if (Test-Path $script:HistoryPath) {
-        try {
-            $history = Get-Content $script:HistoryPath -Raw | ConvertFrom-Json
-            if ($history -isnot [System.Array]) { $history = @($history) }
-        }
-        catch {
-            $history = @()
-        }
-    }
-    
-    $LstHistory.ItemsSource = ($history | ForEach-Object { "$($_.Date) - $($_.Title)" })
-    
-    $LstHistory.Add_MouseDoubleClick({
-            if ($LstHistory.SelectedIndex -ge 0) {
-                $selected = $history[$LstHistory.SelectedIndex]
-                $TxtUrl.Text = $selected.Url
-                $dialog.Close()
-            }
-        })
-    
-    $BtnClearHistory.Add_Click({
-            if (Test-Path $script:HistoryPath) {
-                Remove-Item $script:HistoryPath -Force
-            }
-            $LstHistory.ItemsSource = @()
-            $TxtStatusBar.Text = "History cleared."
-        })
-    
-    $BtnCloseHistory.Add_Click({
-            $dialog.Close()
-        })
-    
-    $dialog.ShowDialog() | Out-Null
-}
-
-# ==============================================================================
 # Download Logic
 # ==============================================================================
 
@@ -835,9 +736,31 @@ function Start-Download {
     $videoFormat = $formatSelection.Video
     $audioFormat = $formatSelection.Audio
     
+    $qualities = @()
+    if ($videoFormat -ne "Best Quality") { $qualities += "($($videoFormat -replace 'p',''))" }
+    if ($audioFormat -ne "Original Audio") { $qualities += "($($audioFormat -replace ' kbps',''))" }
+    $qualitySuffix = if ($qualities.Count -gt 0) { " " + ($qualities -join " ") } else { "" }
+
+    $cleanTitleWildcard = if ([string]::IsNullOrWhiteSpace($metadata.title)) { "Unknown Video" } else { $metadata.title -replace '[<>:"/\\|?*]', '?' }
+
+    $exactExists = Get-ChildItem -LiteralPath $folder -Filter "$cleanTitleWildcard$qualitySuffix.*" -ErrorAction SilentlyContinue
+    $nSuffix = ""
+
+    if ($exactExists) {
+        $n = 1
+        while ($true) {
+            $testExists = Get-ChildItem -LiteralPath $folder -Filter "$cleanTitleWildcard$qualitySuffix ($n).*" -ErrorAction SilentlyContinue
+            if (-not $testExists) {
+                $nSuffix = " ($n)"
+                break
+            }
+            $n++
+        }
+    }
+
     $ytArgs = @()
     $ytArgs += "-o"
-    $ytArgs += "`"$folder\%(title)s.%(ext)s`""
+    $ytArgs += "`"$folder\%(title)s$qualitySuffix$nSuffix.%(ext)s`""
     
     if ($videoFormat -eq "Best Quality") {
         $ytArgs += "-f"
@@ -1026,9 +949,7 @@ $Window.Height = $_height
 $_folder = if ($config.LastFolder) { $config.LastFolder } else { Join-Path $env:USERPROFILE 'Downloads' }
 if (-not (Test-Path $_folder)) { $_folder = Join-Path $env:USERPROFILE 'Downloads' }
 $TxtFolder.Text = $_folder
-$_alwaysOnTop = if ($null -ne $config.AlwaysOnTop) { [bool]$config.AlwaysOnTop } else { $false }
-$ChkAlwaysOnTop.IsChecked = $_alwaysOnTop
-$Window.Topmost = $_alwaysOnTop
+
 
 # Wire up event handlers
 $BtnPaste.Add_Click({
@@ -1243,24 +1164,7 @@ $BtnCancel.Add_Click({
         }
     })
 
-$BtnCopyTitle.Add_Click({
-        if ($TxtTitle.Text) {
-            [System.Windows.Clipboard]::SetText($TxtTitle.Text)
-            $TxtStatusBar.Text = "Title copied to clipboard."
-        }
-    })
 
-$ChkAlwaysOnTop.Add_Checked({
-        $Window.Topmost = $true
-    })
-
-$ChkAlwaysOnTop.Add_Unchecked({
-        $Window.Topmost = $false
-    })
-
-$BtnHistory.Add_Click({
-        Show-HistoryDialog
-    })
 
 # Drag and Drop
 $Window.AllowDrop = $true
