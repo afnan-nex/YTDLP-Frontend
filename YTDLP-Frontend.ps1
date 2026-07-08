@@ -594,14 +594,16 @@ $MainXaml = @"
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
         <!-- URL Input -->
-        <Grid Grid.Row="0" Margin="0,0,0,20">
+        <Grid Grid.Row="0" Margin="0,0,0,10">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="Auto"/>
@@ -609,11 +611,38 @@ $MainXaml = @"
             <TextBox x:Name="TxtUrl" Grid.Column="0" Margin="0,0,10,0" VerticalAlignment="Center"/>
             <Button x:Name="BtnPaste" Grid.Column="1" Content="Paste" Margin="0,0,5,0"/>
             <Button x:Name="BtnClear" Grid.Column="2" Content="Clear" Margin="0,0,5,0"/>
-            <Button x:Name="BtnDownload" Grid.Column="3" Content="Download"/>
+            <Button x:Name="BtnFetchInfo" Grid.Column="3" Content="Fetch Info" Margin="0,0,5,0"/>
+            <Button x:Name="BtnDownload" Grid.Column="4" Content="Download"/>
+        </Grid>
+
+        <!-- Format Selection -->
+        <Grid Grid.Row="1" Margin="0,0,0,20">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="Video Format:" VerticalAlignment="Center" Margin="0,0,10,0"/>
+            <ComboBox x:Name="CmbVideo" Grid.Column="1" Margin="0,0,20,0" VerticalAlignment="Center" Padding="5">
+                <ComboBoxItem Content="Best Quality" IsSelected="True"/>
+                <ComboBoxItem Content="1080p"/>
+                <ComboBoxItem Content="720p"/>
+                <ComboBoxItem Content="480p"/>
+                <ComboBoxItem Content="360p"/>
+            </ComboBox>
+            <TextBlock Grid.Column="2" Text="Audio Format:" VerticalAlignment="Center" Margin="0,0,10,0"/>
+            <ComboBox x:Name="CmbAudio" Grid.Column="3" Margin="0,0,0,0" VerticalAlignment="Center" Padding="5">
+                <ComboBoxItem Content="Original Audio" IsSelected="True"/>
+                <ComboBoxItem Content="MP3 320 kbps"/>
+                <ComboBoxItem Content="MP3 256 kbps"/>
+                <ComboBoxItem Content="MP3 192 kbps"/>
+                <ComboBoxItem Content="MP3 128 kbps"/>
+            </ComboBox>
         </Grid>
 
         <!-- Folder Selection -->
-        <Grid Grid.Row="1" Margin="0,0,0,20">
+        <Grid Grid.Row="2" Margin="0,0,0,20">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="*"/>
@@ -627,7 +656,7 @@ $MainXaml = @"
         </Grid>
 
         <!-- Main Content -->
-        <Grid Grid.Row="2">
+        <Grid Grid.Row="3">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="*"/>
@@ -676,7 +705,7 @@ $MainXaml = @"
         </Grid>
 
         <!-- Status Bar -->
-        <Grid Grid.Row="3" Margin="0,20,0,0">
+        <Grid Grid.Row="4" Margin="0,20,0,0">
             <TextBlock x:Name="TxtStatusBar" Text="Status: Idle" Foreground="#AAAAAA"/>
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                 <CheckBox x:Name="ChkAlwaysOnTop" Content="Always on Top" VerticalAlignment="Center" Margin="0,0,10,0"/>
@@ -687,46 +716,6 @@ $MainXaml = @"
 </Window>
 "@
 
-$FormatXaml = @"
-<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Select Format" Height="400" Width="500"
-        Background="#121212" Foreground="#E0E0E0"
-        WindowStartupLocation="CenterOwner" ResizeMode="NoResize">
-    $ResourceXaml
-    <Grid Margin="20">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
-        </Grid.RowDefinitions>
-        
-        <TextBlock Grid.Row="0" Text="Select Format" FontSize="20" FontWeight="Bold" Margin="0,0,0,20"/>
-        
-        <Grid Grid.Row="1" Margin="0,0,0,20">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="*"/>
-            </Grid.ColumnDefinitions>
-            
-            <StackPanel Grid.Column="0" Margin="0,0,10,0">
-                <TextBlock Text="Video" FontSize="16" Margin="0,0,0,10"/>
-                <ListBox x:Name="LstVideo" Height="200" Background="#1E1E1E" Foreground="#E0E0E0"/>
-            </StackPanel>
-            
-            <StackPanel Grid.Column="1" Margin="10,0,0,0">
-                <TextBlock Text="Audio" FontSize="16" Margin="0,0,0,10"/>
-                <ListBox x:Name="LstAudio" Height="200" Background="#1E1E1E" Foreground="#E0E0E0"/>
-            </StackPanel>
-        </Grid>
-        
-        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
-            <Button x:Name="BtnCancelFormat" Content="Cancel" Margin="0,0,10,0"/>
-            <Button x:Name="BtnOkFormat" Content="Download"/>
-        </StackPanel>
-    </Grid>
-</Window>
-"@
 
 $HistoryXaml = @"
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -794,46 +783,6 @@ $script:DownloadPS = $null
 # Dialog Functions
 # ==============================================================================
 
-function Show-FormatDialog {
-    param($metadata)
-    
-    $dialog = Convert-XamlToObject $FormatXaml
-    $dialog.Owner = $Window
-    
-    # Populate Video options
-    $videoOptions = @("Best Quality")
-    $availableRes = $metadata.formats | Where-Object { $_.height } | Select-Object -ExpandProperty height -Unique | Sort-Object -Descending
-    foreach ($res in @(2160, 1440, 1080, 720, 480, 360)) {
-        if ($availableRes -contains $res) {
-            $videoOptions += "${res}p"
-        }
-    }
-    $LstVideo.ItemsSource = $videoOptions
-    $LstVideo.SelectedIndex = 0
-    
-    # Populate Audio options
-    $audioOptions = @("Original Audio", "MP3 320 kbps", "MP3 256 kbps", "MP3 192 kbps", "MP3 128 kbps")
-    $LstAudio.ItemsSource = $audioOptions
-    $LstAudio.SelectedIndex = 0
-    
-    $script:FormatDialogResult = $null
-    
-    $BtnOkFormat.Add_Click({
-            $script:FormatDialogResult = @{
-                Video = $LstVideo.SelectedItem
-                Audio = $LstAudio.SelectedItem
-            }
-            $dialog.Close()
-        })
-    
-    $BtnCancelFormat.Add_Click({
-            $dialog.Close()
-        })
-    
-    $dialog.ShowDialog() | Out-Null
-    
-    return $script:FormatDialogResult
-}
 
 function Show-HistoryDialog {
     $dialog = Convert-XamlToObject $HistoryXaml
@@ -952,15 +901,20 @@ function Start-Download {
                     $downloadedBytes = [math]::Round(($percent / 100) * $totalBytes)
                     $downloadedSize = Format-Size $downloadedBytes
                 
+                    $c_pct   = $percent
+                    $c_total = $total
+                    $c_speed = $speed
+                    $c_eta   = $eta
+                    $c_dl    = $downloadedSize
+                    $c_ui    = $uiElements
                     $dispatcher.Invoke([Action] {
-                            param($p, $t, $s, $e, $d)
-                            $uiElements.PbDownload.Value = $p
-                            $uiElements.TxtPercent.Text = "$p%"
-                            $uiElements.TxtSpeed.Text = "Speed: $s"
-                            $uiElements.TxtEta.Text = "ETA: $e"
-                            $uiElements.TxtTotalSize.Text = "Total: $t"
-                            $uiElements.TxtDownloaded.Text = "Downloaded: $d"
-                        }, $percent, $total, $speed, $eta, $downloadedSize)
+                            $c_ui.PbDownload.Value        = $c_pct
+                            $c_ui.TxtPercent.Text         = "$c_pct%"
+                            $c_ui.TxtSpeed.Text           = "Speed: $c_speed"
+                            $c_ui.TxtEta.Text             = "ETA: $c_eta"
+                            $c_ui.TxtTotalSize.Text       = "Total: $c_total"
+                            $c_ui.TxtDownloaded.Text      = "Downloaded: $c_dl"
+                        })
                 }
                 elseif ($line -match "^\[download\]\s+100%") {
                     $dispatcher.Invoke([Action] {
@@ -969,64 +923,60 @@ function Start-Download {
                         })
                 }
                 elseif ($line -match "^\[download\]\s+Destination:\s+(.+)") {
+                    $c_status = $matches[1]; $c_ui = $uiElements
                     $dispatcher.Invoke([Action] {
-                            param($status)
-                            $uiElements.TxtStatus.Text = "Downloading: $status"
-                        }, $matches[1])
+                            $c_ui.TxtStatus.Text = "Downloading: $c_status"
+                        })
                 }
                 elseif ($line -match "^\[Merger\]\s+(.+)") {
+                    $c_status = $matches[1]; $c_ui = $uiElements
                     $dispatcher.Invoke([Action] {
-                            param($status)
-                            $uiElements.TxtStatus.Text = "Merging: $status"
-                        }, $matches[1])
+                            $c_ui.TxtStatus.Text = "Merging: $c_status"
+                        })
                 }
                 elseif ($line -match "^\[ffmpeg\]\s+(.+)") {
+                    $c_status = $matches[1]; $c_ui = $uiElements
                     $dispatcher.Invoke([Action] {
-                            param($status)
-                            $uiElements.TxtStatus.Text = "Converting: $status"
-                        }, $matches[1])
+                            $c_ui.TxtStatus.Text = "Converting: $c_status"
+                        })
                 }
                 elseif ($line -match "ERROR:\s+(.+)") {
+                    $c_err = $matches[1]
+                    $c_ui  = $uiElements
                     $dispatcher.Invoke([Action] {
-                            param($err)
-                            [System.Windows.MessageBox]::Show($err, "Error", 'OK', 'Error')
-                        }, $matches[1])
+                            $c_ui.TxtStatus.Text = "Error: $c_err"
+                            $c_ui.TxtStatusBar.Text = "Error: $c_err"
+                        })
                     break
                 }
             }
         
             $p.WaitForExit()
         
+            $c_ui     = $uiElements
+            $c_state  = $state
+            $c_exit   = $p.ExitCode
+            $c_folder = $folder
+            $c_title  = $title
+            $c_url    = $url
             $dispatcher.Invoke([Action] {
-                    if ($state.Cancelled) {
-                        $uiElements.TxtStatus.Text = "Cancelled"
-                        $uiElements.TxtStatusBar.Text = "Cancelled"
+                    if ($c_state.Cancelled) {
+                        $c_ui.TxtStatus.Text    = 'Cancelled'
+                        $c_ui.TxtStatusBar.Text = 'Cancelled'
                     }
-                    elseif ($p.ExitCode -eq 0) {
-                        $uiElements.TxtStatus.Text = "Download Complete"
-                        $uiElements.TxtStatusBar.Text = "Ready"
-                        $uiElements.PbDownload.Value = 100
-                        $uiElements.TxtPercent.Text = "100%"
-                
-                        Add-History $url $title
-                
-                        $result = [System.Windows.MessageBox]::Show("Download Complete!`n`nOpen file location?", "Success", 'YesNo', 'Information')
-                        if ($result -eq 'Yes') {
-                            $file = Get-ChildItem -Path $folder -Filter "$title.*" -ErrorAction SilentlyContinue | Select-Object -First 1
-                            if ($file) {
-                                Start-Process explorer.exe "/select,`"$($file.FullName)`""
-                            }
-                            else {
-                                Start-Process explorer.exe $folder
-                            }
-                        }
+                    elseif ($c_exit -eq 0) {
+                        $c_ui.TxtStatus.Text    = 'Download Complete'
+                        $c_ui.TxtStatusBar.Text = 'Ready'
+                        $c_ui.PbDownload.Value  = 100
+                        $c_ui.TxtPercent.Text   = '100%'
+                        Add-History $c_url $c_title
                     }
                     else {
-                        $uiElements.TxtStatus.Text = "Failed"
-                        $uiElements.TxtStatusBar.Text = "Failed"
+                        $c_ui.TxtStatus.Text    = 'Failed'
+                        $c_ui.TxtStatusBar.Text = 'Failed'
                     }
-                    $uiElements.BtnDownload.IsEnabled = $true
-                    $uiElements.BtnCancel.Visibility = "Collapsed"
+                    $c_ui.BtnDownload.IsEnabled      = $true
+                    $c_ui.BtnCancel.Visibility       = 'Collapsed'
                 })
         }) | Out-Null
     $ps.AddArgument($ytArgs)
@@ -1063,13 +1013,22 @@ $Window = Convert-XamlToObject $MainXaml
 
 # Apply configuration
 $config = Load-Config
-$Window.Left = $config.WindowPos.Left
-$Window.Top = $config.WindowPos.Top
-$Window.Width = $config.WindowSize.Width
-$Window.Height = $config.WindowSize.Height
-$TxtFolder.Text = $config.LastFolder
-$ChkAlwaysOnTop.IsChecked = $config.AlwaysOnTop
-$Window.Topmost = $config.AlwaysOnTop
+# WindowPos/WindowSize may be PSCustomObject (from JSON) or hashtable (defaults)
+$_left   = if ($config.WindowPos)  { $config.WindowPos.Left }   else { 100 }
+$_top    = if ($config.WindowPos)  { $config.WindowPos.Top }    else { 100 }
+$_width  = if ($config.WindowSize) { $config.WindowSize.Width }  else { 800 }
+$_height = if ($config.WindowSize) { $config.WindowSize.Height } else { 600 }
+$Window.Left   = $_left
+$Window.Top    = $_top
+$Window.Width  = $_width
+$Window.Height = $_height
+# Default save folder — always fall back to Downloads if empty/missing
+$_folder = if ($config.LastFolder) { $config.LastFolder } else { Join-Path $env:USERPROFILE 'Downloads' }
+if (-not (Test-Path $_folder)) { $_folder = Join-Path $env:USERPROFILE 'Downloads' }
+$TxtFolder.Text = $_folder
+$_alwaysOnTop = if ($null -ne $config.AlwaysOnTop) { [bool]$config.AlwaysOnTop } else { $false }
+$ChkAlwaysOnTop.IsChecked = $_alwaysOnTop
+$Window.Topmost = $_alwaysOnTop
 
 # Wire up event handlers
 $BtnPaste.Add_Click({
@@ -1097,14 +1056,14 @@ $BtnOpenFolder.Add_Click({
         }
     })
 
-$BtnDownload.Add_Click({
+$BtnFetchInfo.Add_Click({
         $url = $TxtUrl.Text.Trim()
         if ([string]::IsNullOrWhiteSpace($url)) {
             [System.Windows.MessageBox]::Show("Please enter a valid URL.", "Error", 'OK', 'Warning')
             return
         }
     
-        $BtnDownload.IsEnabled = $false
+        $BtnFetchInfo.IsEnabled = $false
         $TxtStatusBar.Text = "Fetching metadata..."
     
         # Synchronized hashtable so the background runspace can pass results to the main thread
@@ -1164,7 +1123,7 @@ $BtnDownload.Add_Click({
                         "Failed to fetch metadata:`n$($script:MetaFetchResult.Error)",
                         "Error", 'OK', 'Error')
                     $TxtStatusBar.Text    = "Ready"
-                    $BtnDownload.IsEnabled = $true
+                    $BtnFetchInfo.IsEnabled = $true
                     return
                 }
             
@@ -1233,16 +1192,46 @@ $BtnDownload.Add_Click({
             
                 $TxtStatusBar.Text = "Ready"
             
-                # Show format-selection dialog — safe because we are on the main UI thread
-                $formatResult = Show-FormatDialog $meta
-                if ($formatResult) {
-                    Start-Download $capturedUrl $formatResult $meta
+                # Update format combo boxes
+                $videoOptions = [System.Collections.Generic.List[string]]::new()
+                $videoOptions.Add('Best Quality')
+                if ($meta -and $meta.formats) {
+                    $availableRes = $meta.formats |
+                        Where-Object { $_.height } |
+                        Select-Object -ExpandProperty height -Unique |
+                        Sort-Object -Descending
+                    foreach ($res in @(2160, 1440, 1080, 720, 480, 360)) {
+                        if ($availableRes -contains $res) { $videoOptions.Add("${res}p") }
+                    }
                 }
-                else {
-                    $BtnDownload.IsEnabled = $true
-                }
+                $CmbVideo.ItemsSource = $videoOptions
+                $CmbVideo.SelectedIndex = 0
+                
+                $BtnFetchInfo.IsEnabled = $true
             })
         $metaTimer.Start()
+    })
+
+$BtnDownload.Add_Click({
+        $url = $TxtUrl.Text.Trim()
+        if ([string]::IsNullOrWhiteSpace($url)) {
+            [System.Windows.MessageBox]::Show("Please enter a valid URL.", "Error", 'OK', 'Warning')
+            return
+        }
+        
+        $vSel = $CmbVideo.SelectedItem
+        $videoFormat = if ($vSel -is [System.Windows.Controls.ComboBoxItem]) { $vSel.Content } else { $vSel }
+        $aSel = $CmbAudio.SelectedItem
+        $audioFormat = if ($aSel -is [System.Windows.Controls.ComboBoxItem]) { $aSel.Content } else { $aSel }
+        
+        $formatSelection = @{
+            Video = $videoFormat
+            Audio = $audioFormat
+        }
+        $title = if ([string]::IsNullOrWhiteSpace($TxtTitle.Text)) { "Unknown Video" } else { $TxtTitle.Text }
+        $metadata = @{ title = $title }
+        
+        Start-Download $url $formatSelection $metadata
     })
 
 $BtnCancel.Add_Click({
@@ -1295,23 +1284,7 @@ $Window.Add_DragOver({
         $e.Handled = $true
     })
 
-# Clipboard auto-detection
-$clipboardTimer = New-Object System.Windows.Threading.DispatcherTimer
-$clipboardTimer.Interval = [TimeSpan]::FromSeconds(2)
-$lastClipboard = ""
-$clipboardTimer.Add_Tick({
-        if ([System.Windows.Clipboard]::ContainsText()) {
-            $text = [System.Windows.Clipboard]::GetText()
-            if ($text -ne $lastClipboard -and $text -match "^(https?://)?(www\.)?(youtube\.com|youtu\.be)/.+") {
-                $lastClipboard = $text
-                if ([string]::IsNullOrWhiteSpace($TxtUrl.Text)) {
-                    $TxtUrl.Text = $text
-                    $TxtStatusBar.Text = "YouTube link detected from clipboard."
-                }
-            }
-        }
-    })
-$clipboardTimer.Start()
+# Clipboard auto-detection removed — paste only via Paste button
 
 # Save config on closing
 $Window.Add_Closing({
