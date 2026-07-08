@@ -1107,11 +1107,19 @@ $BtnDownload.Add_Click({
         $BtnDownload.IsEnabled = $false
         $TxtStatusBar.Text = "Fetching metadata..."
     
+        # Synchronized hashtable so the background runspace can pass results to the main thread
+        $script:MetaFetchResult = [hashtable]::Synchronized(@{
+            Done     = $false
+            Metadata = $null
+            Error    = $null
+            Url      = $url
+        })
+    
         $ps = [PowerShell]::Create()
         $ps.RunspacePool = $script:RunspacePool
         $ps.AddScript({
-                param($url, $dispatcher, $uiElements)
-        
+                param($url, $result)
+            
                 $p = New-Object System.Diagnostics.Process
                 $p.StartInfo.FileName = "yt-dlp"
                 $p.StartInfo.Arguments = "-J --no-warnings `"$url`""
@@ -1120,103 +1128,121 @@ $BtnDownload.Add_Click({
                 $p.StartInfo.RedirectStandardError = $true
                 $p.StartInfo.CreateNoWindow = $true
                 $p.Start() | Out-Null
-        
+            
                 $output = $p.StandardOutput.ReadToEnd()
-                $err = $p.StandardError.ReadToEnd()
+                $err    = $p.StandardError.ReadToEnd()
                 $p.WaitForExit()
-        
+            
                 if ($p.ExitCode -ne 0) {
-                    $capturedErr = $err
-                    $capturedUiElements = $uiElements
-                    $dispatcher.Invoke([Action] {
-                            [System.Windows.MessageBox]::Show("Failed to fetch metadata:`n$capturedErr", "Error", 'OK', 'Error')
-                            $capturedUiElements.TxtStatusBar.Text = "Ready"
-                            $capturedUiElements.BtnDownload.IsEnabled = $true
-                        })
+                    $result.Error = $err
+                    $result.Done  = $true
                     return
                 }
-        
+            
                 try {
-                    $metadata = $output | ConvertFrom-Json
+                    $result.Metadata = $output | ConvertFrom-Json
                 }
                 catch {
-                    $dispatcher.Invoke([Action] {
-                            [System.Windows.MessageBox]::Show("Failed to parse metadata.", "Error", 'OK', 'Error')
-                            $uiElements.TxtStatusBar.Text = "Ready"
-                            $uiElements.BtnDownload.IsEnabled = $true
-                        })
-                    return
+                    $result.Error = "Failed to parse metadata: $($_.Exception.Message)"
                 }
-        
-                $dispatcher.Invoke([Action] {
-                        param($meta)
-                        $uiElements.TxtTitle.Text = $meta.title
-                        $uiElements.TxtChannel.Text = "Channel: $($meta.channel)"
-            
-                        if ($meta.duration) {
-                            $duration = [TimeSpan]::FromSeconds($meta.duration)
-                            $uiElements.TxtDuration.Text = "Duration: $($duration.ToString('hh\:mm\:ss'))"
-                        }
-                        else {
-                            $uiElements.TxtDuration.Text = "Duration: Unknown"
-                        }
-            
-                        $uiElements.TxtUploadDate.Text = "Upload Date: $($meta.upload_date)"
-            
-                        if ($meta.filesize) {
-                            $sizeMB = [math]::Round($meta.filesize / 1MB, 2)
-                            $uiElements.TxtFileSize.Text = "Size: $sizeMB MB"
-                        }
-                        else {
-                            $uiElements.TxtFileSize.Text = "Size: Unknown"
-                        }
-            
-                        # Load thumbnail
-                        if ($meta.thumbnail) {
-                            try {
-                                $webClient = New-Object System.Net.WebClient
-                                $imageData = $webClient.DownloadData($meta.thumbnail)
-                                $ms = New-Object System.IO.MemoryStream(, $imageData)
-                                $bitmap = New-Object System.Windows.Media.Imaging.BitmapImage
-                                $bitmap.BeginInit()
-                                $bitmap.StreamSource = $ms
-                                $bitmap.CacheOption = [System.Windows.Media.Imaging.BitmapCacheOption]::OnLoad
-                                $bitmap.EndInit()
-                                $uiElements.ImgThumbnail.Source = $bitmap
-                            }
-                            catch {
-                                # Ignore image load errors
-                            }
-                        }
-            
-                        $uiElements.TxtStatusBar.Text = "Ready"
-            
-                        # Show Format Dialog
-                        $formatResult = Show-FormatDialog $meta
-                        if ($formatResult) {
-                            Start-Download $url $formatResult $meta
-                        }
-                        else {
-                            $uiElements.BtnDownload.IsEnabled = $true
-                        }
-                    }, $metadata)
+                $result.Done = $true
             }) | Out-Null
         $ps.AddArgument($url)
-        $ps.AddArgument($Window.Dispatcher)
+        $ps.AddArgument($script:MetaFetchResult)
+        $ps.BeginInvoke() | Out-Null
     
-        $uiElements = @{
-            TxtStatusBar  = $Window.FindName("TxtStatusBar")
-            BtnDownload   = $Window.FindName("BtnDownload")
-            TxtTitle      = $Window.FindName("TxtTitle")
-            TxtChannel    = $Window.FindName("TxtChannel")
-            TxtDuration   = $Window.FindName("TxtDuration")
-            TxtUploadDate = $Window.FindName("TxtUploadDate")
-            TxtFileSize   = $Window.FindName("TxtFileSize")
-            ImgThumbnail  = $Window.FindName("ImgThumbnail")
-        }
-        $ps.AddArgument($uiElements)
-    
-        $handle = $ps.BeginInvoke()
+        # Poll on the main (UI) thread — safe to call any PowerShell function here
+        $metaTimer = New-Object System.Windows.Threading.DispatcherTimer
+        $metaTimer.Interval = [TimeSpan]::FromMilliseconds(250)
+        $capturedUrl = $url
+        $metaTimer.Add_Tick({
+                if (-not $script:MetaFetchResult.Done) { return }
+                $metaTimer.Stop()
+            
+                if ($script:MetaFetchResult.Error) {
+                    [System.Windows.MessageBox]::Show(
+                        "Failed to fetch metadata:`n$($script:MetaFetchResult.Error)",
+                        "Error", 'OK', 'Error')
+                    $TxtStatusBar.Text    = "Ready"
+                    $BtnDownload.IsEnabled = $true
+                    return
+                }
+            
+                $meta = $script:MetaFetchResult.Metadata
+            
+                # Update info panel (main thread, fully safe)
+                $TxtTitle.Text   = $meta.title
+                $TxtChannel.Text = "Channel: $($meta.channel)"
+            
+                if ($meta.duration) {
+                    $dur = [TimeSpan]::FromSeconds($meta.duration)
+                    $TxtDuration.Text = "Duration: $($dur.ToString('hh\:mm\:ss'))"
+                }
+                else {
+                    $TxtDuration.Text = "Duration: Unknown"
+                }
+            
+                $TxtUploadDate.Text = "Upload Date: $($meta.upload_date)"
+            
+                if ($meta.filesize) {
+                    $TxtFileSize.Text = "Size: $([math]::Round($meta.filesize / 1MB, 2)) MB"
+                }
+                else {
+                    $TxtFileSize.Text = "Size: Unknown"
+                }
+            
+                # Load thumbnail (network + bitmap — run in a separate runspace, update image on UI thread)
+                if ($meta.thumbnail) {
+                    $thumbUrl  = $meta.thumbnail
+                    $imgCtrl   = $ImgThumbnail
+                    $thumbPS   = [PowerShell]::Create()
+                    $thumbPS.RunspacePool = $script:RunspacePool
+                    $thumbPS.AddScript({
+                            param($url)
+                            try {
+                                $wc   = New-Object System.Net.WebClient
+                                return $wc.DownloadData($url)
+                            }
+                            catch { return $null }
+                        }) | Out-Null
+                    $thumbPS.AddArgument($thumbUrl)
+                    $thumbHandle = $thumbPS.BeginInvoke()
+            
+                    $thumbTimer = New-Object System.Windows.Threading.DispatcherTimer
+                    $thumbTimer.Interval = [TimeSpan]::FromMilliseconds(200)
+                    $thumbTimer.Add_Tick({
+                            if (-not $thumbHandle.IsCompleted) { return }
+                            $thumbTimer.Stop()
+                            $imageData = $thumbPS.EndInvoke($thumbHandle)
+                            if ($imageData) {
+                                try {
+                                    $ms     = New-Object System.IO.MemoryStream (, $imageData)
+                                    $bitmap = New-Object System.Windows.Media.Imaging.BitmapImage
+                                    $bitmap.BeginInit()
+                                    $bitmap.StreamSource  = $ms
+                                    $bitmap.CacheOption   = [System.Windows.Media.Imaging.BitmapCacheOption]::OnLoad
+                                    $bitmap.EndInit()
+                                    $bitmap.Freeze()
+                                    $imgCtrl.Source = $bitmap
+                                }
+                                catch { }
+                            }
+                        })
+                    $thumbTimer.Start()
+                }
+            
+                $TxtStatusBar.Text = "Ready"
+            
+                # Show format-selection dialog — safe because we are on the main UI thread
+                $formatResult = Show-FormatDialog $meta
+                if ($formatResult) {
+                    Start-Download $capturedUrl $formatResult $meta
+                }
+                else {
+                    $BtnDownload.IsEnabled = $true
+                }
+            })
+        $metaTimer.Start()
     })
 
 $BtnCancel.Add_Click({
