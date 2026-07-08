@@ -1,17 +1,16 @@
 <#
 ================================================================================
-  yt-dlp GUI - Modern PowerShell Frontend
+  yt-dlp GUI by AFNAN - Modern PowerShell Frontend
 ================================================================================
   A complete, production-ready graphical interface for yt-dlp.
   Compatible with Windows PowerShell 5.1 and later.
   
   Features:
-  - Automatic dependency management (Chocolatey, yt-dlp, FFmpeg)
+  - Dependency management (Chocolatey, yt-dlp, FFmpeg)
   - Modern dark theme WPF interface
   - Non-blocking background downloads
   - Metadata retrieval and format selection
   - Real-time progress tracking
-  - Download history and configuration persistence
 ================================================================================
 #>
 
@@ -87,17 +86,17 @@ function Load-Config {
         }
     }
     return @{
-        LastFolder  = Join-Path $env:USERPROFILE "Downloads"
-        WindowSize  = @{ Width = 800; Height = 600 }
-        WindowPos   = @{ Left = 100; Top = 100 }
+        LastFolder = Join-Path $env:USERPROFILE "Downloads"
+        WindowSize = @{ Width = 800; Height = 600 }
+        WindowPos  = @{ Left = 100; Top = 100 }
     }
 }
 
 function Save-Config {
     $config = @{
-        LastFolder  = $TxtFolder.Text
-        WindowSize  = @{ Width = $Window.Width; Height = $Window.Height }
-        WindowPos   = @{ Left = $Window.Left; Top = $Window.Top }
+        LastFolder = $TxtFolder.Text
+        WindowSize = @{ Width = $Window.Width; Height = $Window.Height }
+        WindowPos  = @{ Left = $Window.Left; Top = $Window.Top }
     }
     $config | ConvertTo-Json | Set-Content $script:ConfigPath -Force
 }
@@ -207,7 +206,7 @@ $ResourceXaml = @"
 $MainXaml = @"
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="yt-dlp GUI" Height="600" Width="800"
+        Title="yt-dlp GUI by AFNAN" Height="600" Width="800"
         Background="#121212" Foreground="#E0E0E0"
         WindowStartupLocation="CenterScreen">
     $ResourceXaml
@@ -504,19 +503,19 @@ function Start-Download {
                     $downloadedBytes = [math]::Round(($percent / 100) * $totalBytes)
                     $downloadedSize = Format-Size $downloadedBytes
                 
-                    $c_pct   = $percent
+                    $c_pct = $percent
                     $c_total = $total
                     $c_speed = $speed
-                    $c_eta   = $eta
-                    $c_dl    = $downloadedSize
-                    $c_ui    = $uiElements
+                    $c_eta = $eta
+                    $c_dl = $downloadedSize
+                    $c_ui = $uiElements
                     $dispatcher.Invoke([Action] {
-                            $c_ui.PbDownload.Value        = $c_pct
-                            $c_ui.TxtPercent.Text         = "$c_pct%"
-                            $c_ui.TxtSpeed.Text           = "Speed: $c_speed"
-                            $c_ui.TxtEta.Text             = "ETA: $c_eta"
-                            $c_ui.TxtTotalSize.Text       = "Total: $c_total"
-                            $c_ui.TxtDownloaded.Text      = "Downloaded: $c_dl"
+                            $c_ui.PbDownload.Value = $c_pct
+                            $c_ui.TxtPercent.Text = "$c_pct%"
+                            $c_ui.TxtSpeed.Text = "Speed: $c_speed"
+                            $c_ui.TxtEta.Text = "ETA: $c_eta"
+                            $c_ui.TxtTotalSize.Text = "Total: $c_total"
+                            $c_ui.TxtDownloaded.Text = "Downloaded: $c_dl"
                         })
                 }
                 elseif ($line -match "^\[download\]\s+100%") {
@@ -545,7 +544,7 @@ function Start-Download {
                 }
                 elseif ($line -match "ERROR:\s+(.+)") {
                     $c_err = $matches[1]
-                    $c_ui  = $uiElements
+                    $c_ui = $uiElements
                     $dispatcher.Invoke([Action] {
                             $c_ui.TxtStatus.Text = "Error: $c_err"
                             $c_ui.TxtStatusBar.Text = "Error: $c_err"
@@ -556,30 +555,30 @@ function Start-Download {
         
             $p.WaitForExit()
         
-            $c_ui     = $uiElements
-            $c_state  = $state
-            $c_exit   = $p.ExitCode
+            $c_ui = $uiElements
+            $c_state = $state
+            $c_exit = $p.ExitCode
             $c_folder = $folder
-            $c_title  = $title
-            $c_url    = $url
+            $c_title = $title
+            $c_url = $url
             $dispatcher.Invoke([Action] {
                     if ($c_state.Cancelled) {
-                        $c_ui.TxtStatus.Text    = 'Cancelled'
+                        $c_ui.TxtStatus.Text = 'Cancelled'
                         $c_ui.TxtStatusBar.Text = 'Cancelled'
                     }
                     elseif ($c_exit -eq 0) {
-                        $c_ui.TxtStatus.Text    = 'Download Complete'
+                        $c_ui.TxtStatus.Text = 'Download Complete'
                         $c_ui.TxtStatusBar.Text = 'Ready'
-                        $c_ui.PbDownload.Value  = 100
-                        $c_ui.TxtPercent.Text   = '100%'
+                        $c_ui.PbDownload.Value = 100
+                        $c_ui.TxtPercent.Text = '100%'
                         Add-History $c_url $c_title
                     }
                     else {
-                        $c_ui.TxtStatus.Text    = 'Failed'
+                        $c_ui.TxtStatus.Text = 'Failed'
                         $c_ui.TxtStatusBar.Text = 'Failed'
                     }
-                    $c_ui.BtnDownload.IsEnabled      = $true
-                    $c_ui.BtnCancel.Visibility       = 'Collapsed'
+                    $c_ui.BtnDownload.IsEnabled = $true
+                    $c_ui.BtnCancel.Visibility = 'Collapsed'
                 })
         }) | Out-Null
     $ps.AddArgument($ytArgs)
@@ -617,13 +616,13 @@ $Window = Convert-XamlToObject $MainXaml
 # Apply configuration
 $config = Load-Config
 # WindowPos/WindowSize may be PSCustomObject (from JSON) or hashtable (defaults)
-$_left   = if ($config.WindowPos)  { $config.WindowPos.Left }   else { 100 }
-$_top    = if ($config.WindowPos)  { $config.WindowPos.Top }    else { 100 }
-$_width  = if ($config.WindowSize) { $config.WindowSize.Width }  else { 800 }
+$_left = if ($config.WindowPos) { $config.WindowPos.Left }   else { 100 }
+$_top = if ($config.WindowPos) { $config.WindowPos.Top }    else { 100 }
+$_width = if ($config.WindowSize) { $config.WindowSize.Width }  else { 800 }
 $_height = if ($config.WindowSize) { $config.WindowSize.Height } else { 600 }
-$Window.Left   = $_left
-$Window.Top    = $_top
-$Window.Width  = $_width
+$Window.Left = $_left
+$Window.Top = $_top
+$Window.Width = $_width
 $Window.Height = $_height
 # Default save folder — always fall back to Downloads if empty/missing
 $_folder = if ($config.LastFolder) { $config.LastFolder } else { Join-Path $env:USERPROFILE 'Downloads' }
@@ -669,11 +668,11 @@ $BtnFetchInfo.Add_Click({
     
         # Synchronized hashtable so the background runspace can pass results to the main thread
         $script:MetaFetchResult = [hashtable]::Synchronized(@{
-            Done     = $false
-            Metadata = $null
-            Error    = $null
-            Url      = $url
-        })
+                Done     = $false
+                Metadata = $null
+                Error    = $null
+                Url      = $url
+            })
     
         $ps = [PowerShell]::Create()
         $ps.RunspacePool = $script:RunspacePool
@@ -690,12 +689,12 @@ $BtnFetchInfo.Add_Click({
                 $p.Start() | Out-Null
             
                 $output = $p.StandardOutput.ReadToEnd()
-                $err    = $p.StandardError.ReadToEnd()
+                $err = $p.StandardError.ReadToEnd()
                 $p.WaitForExit()
             
                 if ($p.ExitCode -ne 0) {
                     $result.Error = $err
-                    $result.Done  = $true
+                    $result.Done = $true
                     return
                 }
             
@@ -723,7 +722,7 @@ $BtnFetchInfo.Add_Click({
                     [System.Windows.MessageBox]::Show(
                         "Failed to fetch metadata:`n$($script:MetaFetchResult.Error)",
                         "Error", 'OK', 'Error')
-                    $TxtStatusBar.Text    = "Ready"
+                    $TxtStatusBar.Text = "Ready"
                     $BtnFetchInfo.IsEnabled = $true
                     return
                 }
@@ -731,7 +730,7 @@ $BtnFetchInfo.Add_Click({
                 $meta = $script:MetaFetchResult.Metadata
             
                 # Update info panel (main thread, fully safe)
-                $TxtTitle.Text   = $meta.title
+                $TxtTitle.Text = $meta.title
                 $TxtChannel.Text = "Channel: $($meta.channel)"
             
                 if ($meta.duration) {
@@ -753,14 +752,14 @@ $BtnFetchInfo.Add_Click({
             
                 # Load thumbnail (network + bitmap — run in a separate runspace, update image on UI thread)
                 if ($meta.thumbnail) {
-                    $thumbUrl  = $meta.thumbnail
-                    $imgCtrl   = $ImgThumbnail
-                    $thumbPS   = [PowerShell]::Create()
+                    $thumbUrl = $meta.thumbnail
+                    $imgCtrl = $ImgThumbnail
+                    $thumbPS = [PowerShell]::Create()
                     $thumbPS.RunspacePool = $script:RunspacePool
                     $thumbPS.AddScript({
                             param($url)
                             try {
-                                $wc   = New-Object System.Net.WebClient
+                                $wc = New-Object System.Net.WebClient
                                 return $wc.DownloadData($url)
                             }
                             catch { return $null }
@@ -776,11 +775,11 @@ $BtnFetchInfo.Add_Click({
                             $imageData = $thumbPS.EndInvoke($thumbHandle)
                             if ($imageData) {
                                 try {
-                                    $ms     = New-Object System.IO.MemoryStream (, $imageData)
+                                    $ms = New-Object System.IO.MemoryStream (, $imageData)
                                     $bitmap = New-Object System.Windows.Media.Imaging.BitmapImage
                                     $bitmap.BeginInit()
-                                    $bitmap.StreamSource  = $ms
-                                    $bitmap.CacheOption   = [System.Windows.Media.Imaging.BitmapCacheOption]::OnLoad
+                                    $bitmap.StreamSource = $ms
+                                    $bitmap.CacheOption = [System.Windows.Media.Imaging.BitmapCacheOption]::OnLoad
                                     $bitmap.EndInit()
                                     $bitmap.Freeze()
                                     $imgCtrl.Source = $bitmap
@@ -798,9 +797,9 @@ $BtnFetchInfo.Add_Click({
                 $videoOptions.Add('Best Quality')
                 if ($meta -and $meta.formats) {
                     $availableRes = $meta.formats |
-                        Where-Object { $_.height } |
-                        Select-Object -ExpandProperty height -Unique |
-                        Sort-Object -Descending
+                    Where-Object { $_.height } |
+                    Select-Object -ExpandProperty height -Unique |
+                    Sort-Object -Descending
                     foreach ($res in @(2160, 1440, 1080, 720, 480, 360)) {
                         if ($availableRes -contains $res) { $videoOptions.Add("${res}p") }
                     }
