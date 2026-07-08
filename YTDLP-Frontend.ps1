@@ -106,388 +106,35 @@ function Save-Config {
 # Dependency Management
 # ==============================================================================
 
-function Install-WithProgress {
-    param([string]$name, [string]$chocoPkg, [scriptblock]$uiUpdater)
+function Install-Choco {
+    Write-Host "=========================================="
+    Write-Host "Installing Chocolatey"
+    Write-Host "=========================================="
+    Write-Host "Launching installation in a new window..."
     
-    $dialog = $null
-    $txtOutput = $null
-    $dispatcher = $Window.Dispatcher
+    # Added 'refreshenv' to the end of the command chain so the new window recognizes 'choco' instantly
+    $chocoCmd = 'echo Installing Chocolatey... && powershell -NoProfile -ExecutionPolicy Bypass -Command "Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString(''https://community.chocolatey.org/install.ps1''))" && echo. && echo Refreshing environment variables... && call refreshenv && echo Chocolatey installation completed. && pause'
     
-    $dispatcher.Invoke([Action] {
-            $dialog = New-Object System.Windows.Window
-            $dialog.Title = "Installing $name"
-            $dialog.Width = 500
-            $dialog.Height = 300
-            $dialog.Background = "#121212"
-            $dialog.WindowStartupLocation = "CenterScreen"
-            $dialog.Topmost = $true
-        
-            $grid = New-Object System.Windows.Controls.Grid
-            $grid.Margin = "20"
-        
-            $row1 = New-Object System.Windows.Controls.RowDefinition
-            $row1.Height = "Auto"
-            $row2 = New-Object System.Windows.Controls.RowDefinition
-            $row2.Height = "*"
-            $grid.RowDefinitions.Add($row1)
-            $grid.RowDefinitions.Add($row2)
-        
-            $txtStatus = New-Object System.Windows.Controls.TextBlock
-            $txtStatus.Text = "Installing $name..."
-            $txtStatus.FontSize = 16
-            $txtStatus.Foreground = "#E0E0E0"
-            $txtStatus.Margin = "0,0,0,10"
-            [System.Windows.Controls.Grid]::SetRow($txtStatus, 0)
-            $grid.Children.Add($txtStatus)
-        
-            $txtOutput = New-Object System.Windows.Controls.TextBox
-            $txtOutput.IsReadOnly = $true
-            $txtOutput.Background = "#1E1E1E"
-            $txtOutput.Foreground = "#E0E0E0"
-            $txtOutput.TextWrapping = "Wrap"
-            $txtOutput.VerticalScrollBarVisibility = "Auto"
-            [System.Windows.Controls.Grid]::SetRow($txtOutput, 1)
-            $grid.Children.Add($txtOutput)
-        
-            $dialog.Content = $grid
-            $dialog.Show()
-        })
-    
-    $p = New-Object System.Diagnostics.Process
-    $p.StartInfo.FileName = "choco"
-    $p.StartInfo.Arguments = "install $chocoPkg -y"
-    $p.StartInfo.UseShellExecute = $false
-    $p.StartInfo.RedirectStandardOutput = $true
-    $p.StartInfo.RedirectStandardError = $true
-    $p.StartInfo.CreateNoWindow = $true
-    $p.Start() | Out-Null
-    
-    while (-not $p.StandardOutput.EndOfStream) {
-        $line = $p.StandardOutput.ReadLine()
-        $capturedLine = $line
-        $capturedTxtOutput = $txtOutput
-        $dispatcher.Invoke([Action] {
-                $capturedTxtOutput.AppendText("$capturedLine`r`n")
-                $capturedTxtOutput.ScrollToEnd()
-            })
-    }
-    $p.WaitForExit()
-    
-    $dispatcher.Invoke([Action] {
-            $dialog.Close()
-        })
-    
-    Refresh-EnvironmentVariables
-    return ($p.ExitCode -eq 0)
+    Start-Process cmd -ArgumentList "/k", $chocoCmd
 }
 
-function Install-Chocolatey {
-    $dialog = $null
-    $txtOutput = $null
-    $dispatcher = $Window.Dispatcher
+function Install-YTDLP {
+    Write-Host "=========================================="
+    Write-Host "Installing yt-dlp"
+    Write-Host "=========================================="
+    Write-Host "Launching installation in a new window..."
+    $ytdlpCmd = 'call refreshenv && echo Installing yt-dlp via Chocolatey... && choco install yt-dlp -y && echo. && echo yt-dlp installation completed. && pause'
     
-    $dispatcher.Invoke([Action] {
-            $dialog = New-Object System.Windows.Window
-            $dialog.Title = "Installing Chocolatey"
-            $dialog.Width = 500
-            $dialog.Height = 300
-            $dialog.Background = "#121212"
-            $dialog.WindowStartupLocation = "CenterScreen"
-            $dialog.Topmost = $true
-        
-            $grid = New-Object System.Windows.Controls.Grid
-            $grid.Margin = "20"
-        
-            $row1 = New-Object System.Windows.Controls.RowDefinition
-            $row1.Height = "Auto"
-            $row2 = New-Object System.Windows.Controls.RowDefinition
-            $row2.Height = "*"
-            $grid.RowDefinitions.Add($row1)
-            $grid.RowDefinitions.Add($row2)
-        
-            $txtStatus = New-Object System.Windows.Controls.TextBlock
-            $txtStatus.Text = "Installing Chocolatey..."
-            $txtStatus.FontSize = 16
-            $txtStatus.Foreground = "#E0E0E0"
-            $txtStatus.Margin = "0,0,0,10"
-            [System.Windows.Controls.Grid]::SetRow($txtStatus, 0)
-            $grid.Children.Add($txtStatus)
-        
-            $txtOutput = New-Object System.Windows.Controls.TextBox
-            $txtOutput.IsReadOnly = $true
-            $txtOutput.Background = "#1E1E1E"
-            $txtOutput.Foreground = "#E0E0E0"
-            $txtOutput.TextWrapping = "Wrap"
-            $txtOutput.VerticalScrollBarVisibility = "Auto"
-            [System.Windows.Controls.Grid]::SetRow($txtOutput, 1)
-            $grid.Children.Add($txtOutput)
-        
-            $dialog.Content = $grid
-            $dialog.Show()
-        })
-    
-    $p = New-Object System.Diagnostics.Process
-    $p.StartInfo.FileName = "powershell.exe"
-    $p.StartInfo.Arguments = "-NoProfile -ExecutionPolicy Bypass -Command `"Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))`""
-    $p.StartInfo.UseShellExecute = $false
-    $p.StartInfo.RedirectStandardOutput = $true
-    $p.StartInfo.RedirectStandardError = $true
-    $p.StartInfo.CreateNoWindow = $true
-    $p.Start() | Out-Null
-    
-    while (-not $p.StandardOutput.EndOfStream) {
-        $line = $p.StandardOutput.ReadLine()
-        $capturedLine = $line
-        $capturedTxtOutput = $txtOutput
-        $dispatcher.Invoke([Action] {
-                $capturedTxtOutput.AppendText("$capturedLine`r`n")
-                $capturedTxtOutput.ScrollToEnd()
-            })
-    }
-    $p.WaitForExit()
-    
-    $dispatcher.Invoke([Action] {
-            $dialog.Close()
-        })
-    
-    Refresh-EnvironmentVariables
-    return ($p.ExitCode -eq 0)
+    Start-Process cmd -ArgumentList "/k", $ytdlpCmd
 }
 
-function Start-DependencyCheck {
-    $TxtStatusBar.Text = "Checking dependencies..."
-    
-    $ps = [PowerShell]::Create()
-    $ps.RunspacePool = $script:RunspacePool
-    $ps.AddScript({
-            param($dispatcher, $txtStatusBar, $window)
-        
-            function Test-Exe($name) {
-                $null -ne (Get-Command $name -ErrorAction SilentlyContinue)
-            }
-        
-            function Install-WithProgress-RS($name, $chocoPkg) {
-                $dialog = $null
-                $txtOutput = $null
-            
-                $dispatcher.Invoke([Action] {
-                        $dialog = New-Object System.Windows.Window
-                        $dialog.Title = "Installing $name"
-                        $dialog.Width = 500
-                        $dialog.Height = 300
-                        $dialog.Background = "#121212"
-                        $dialog.WindowStartupLocation = "CenterScreen"
-                        $dialog.Topmost = $true
-                
-                        $grid = New-Object System.Windows.Controls.Grid
-                        $grid.Margin = "20"
-                
-                        $row1 = New-Object System.Windows.Controls.RowDefinition
-                        $row1.Height = "Auto"
-                        $row2 = New-Object System.Windows.Controls.RowDefinition
-                        $row2.Height = "*"
-                        $grid.RowDefinitions.Add($row1)
-                        $grid.RowDefinitions.Add($row2)
-                
-                        $txtStatus = New-Object System.Windows.Controls.TextBlock
-                        $txtStatus.Text = "Installing $name..."
-                        $txtStatus.FontSize = 16
-                        $txtStatus.Foreground = "#E0E0E0"
-                        $txtStatus.Margin = "0,0,0,10"
-                        [System.Windows.Controls.Grid]::SetRow($txtStatus, 0)
-                        $grid.Children.Add($txtStatus)
-                
-                        $txtOutput = New-Object System.Windows.Controls.TextBox
-                        $txtOutput.IsReadOnly = $true
-                        $txtOutput.Background = "#1E1E1E"
-                        $txtOutput.Foreground = "#E0E0E0"
-                        $txtOutput.TextWrapping = "Wrap"
-                        $txtOutput.VerticalScrollBarVisibility = "Auto"
-                        [System.Windows.Controls.Grid]::SetRow($txtOutput, 1)
-                        $grid.Children.Add($txtOutput)
-                
-                        $dialog.Content = $grid
-                        $dialog.Show()
-                    })
-            
-                $p = New-Object System.Diagnostics.Process
-                $p.StartInfo.FileName = "choco"
-                $p.StartInfo.Arguments = "install $chocoPkg -y"
-                $p.StartInfo.UseShellExecute = $false
-                $p.StartInfo.RedirectStandardOutput = $true
-                $p.StartInfo.RedirectStandardError = $true
-                $p.StartInfo.CreateNoWindow = $true
-                $p.Start() | Out-Null
-            
-                while (-not $p.StandardOutput.EndOfStream) {
-                    $line = $p.StandardOutput.ReadLine()
-                    $capturedLine = $line
-                    $capturedTxtOutput = $txtOutput
-                    $dispatcher.Invoke([Action] {
-                            $capturedTxtOutput.AppendText("$capturedLine`r`n")
-                            $capturedTxtOutput.ScrollToEnd()
-                        })
-                }
-                $p.WaitForExit()
-            
-                $dispatcher.Invoke([Action] {
-                        $dialog.Close()
-                    })
-            
-                Refresh-EnvironmentVariables
-                return ($p.ExitCode -eq 0)
-            }
-        
-            function Install-Chocolatey-RS {
-                $dialog = $null
-                $txtOutput = $null
-            
-                $dispatcher.Invoke([Action] {
-                        $dialog = New-Object System.Windows.Window
-                        $dialog.Title = "Installing Chocolatey"
-                        $dialog.Width = 500
-                        $dialog.Height = 300
-                        $dialog.Background = "#121212"
-                        $dialog.WindowStartupLocation = "CenterScreen"
-                        $dialog.Topmost = $true
-                
-                        $grid = New-Object System.Windows.Controls.Grid
-                        $grid.Margin = "20"
-                
-                        $row1 = New-Object System.Windows.Controls.RowDefinition
-                        $row1.Height = "Auto"
-                        $row2 = New-Object System.Windows.Controls.RowDefinition
-                        $row2.Height = "*"
-                        $grid.RowDefinitions.Add($row1)
-                        $grid.RowDefinitions.Add($row2)
-                
-                        $txtStatus = New-Object System.Windows.Controls.TextBlock
-                        $txtStatus.Text = "Installing Chocolatey..."
-                        $txtStatus.FontSize = 16
-                        $txtStatus.Foreground = "#E0E0E0"
-                        $txtStatus.Margin = "0,0,0,10"
-                        [System.Windows.Controls.Grid]::SetRow($txtStatus, 0)
-                        $grid.Children.Add($txtStatus)
-                
-                        $txtOutput = New-Object System.Windows.Controls.TextBox
-                        $txtOutput.IsReadOnly = $true
-                        $txtOutput.Background = "#1E1E1E"
-                        $txtOutput.Foreground = "#E0E0E0"
-                        $txtOutput.TextWrapping = "Wrap"
-                        $txtOutput.VerticalScrollBarVisibility = "Auto"
-                        [System.Windows.Controls.Grid]::SetRow($txtOutput, 1)
-                        $grid.Children.Add($txtOutput)
-                
-                        $dialog.Content = $grid
-                        $dialog.Show()
-                    })
-            
-                $p = New-Object System.Diagnostics.Process
-                $p.StartInfo.FileName = "powershell.exe"
-                $p.StartInfo.Arguments = "-NoProfile -ExecutionPolicy Bypass -Command `"Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))`""
-                $p.StartInfo.UseShellExecute = $false
-                $p.StartInfo.RedirectStandardOutput = $true
-                $p.StartInfo.RedirectStandardError = $true
-                $p.StartInfo.CreateNoWindow = $true
-                $p.Start() | Out-Null
-            
-                while (-not $p.StandardOutput.EndOfStream) {
-                    $line = $p.StandardOutput.ReadLine()
-                    $capturedLine = $line
-                    $capturedTxtOutput = $txtOutput
-                    $dispatcher.Invoke([Action] {
-                            $capturedTxtOutput.AppendText("$capturedLine`r`n")
-                            $capturedTxtOutput.ScrollToEnd()
-                        })
-                }
-                $p.WaitForExit()
-            
-                $dispatcher.Invoke([Action] {
-                        $dialog.Close()
-                    })
-            
-                Refresh-EnvironmentVariables
-                return ($p.ExitCode -eq 0)
-            }
-        
-            # Check Chocolatey
-            if (-not (Test-Exe "choco")) {
-                $result = $dispatcher.Invoke([Func[Object]] {
-                        return [System.Windows.MessageBox]::Show("Chocolatey is required to install application dependencies.`n`nWould you like to install Chocolatey now?", "Missing Dependency", 'YesNo', 'Question')
-                    })
-                if ($result -eq 'Yes') {
-                    if (-not (Install-Chocolatey-RS)) {
-                        $dispatcher.Invoke([Action] {
-                                [System.Windows.MessageBox]::Show("Failed to install Chocolatey.", "Error", 'OK', 'Error')
-                            })
-                        return $false
-                    }
-                }
-                else {
-                    return $false
-                }
-            }
-        
-            # Check yt-dlp
-            if (-not (Test-Exe "yt-dlp")) {
-                $result = $dispatcher.Invoke([Func[Object]] {
-                        return [System.Windows.MessageBox]::Show("yt-dlp is not installed.`n`nInstall now?", "Missing Dependency", 'YesNo', 'Question')
-                    })
-                if ($result -eq 'Yes') {
-                    if (-not (Install-WithProgress-RS "yt-dlp" "yt-dlp")) {
-                        $dispatcher.Invoke([Action] {
-                                [System.Windows.MessageBox]::Show("Failed to install yt-dlp.", "Error", 'OK', 'Error')
-                            })
-                        return $false
-                    }
-                }
-                else {
-                    return $false
-                }
-            }
-        
-            # Check FFmpeg
-            if (-not (Test-Exe "ffmpeg")) {
-                $result = $dispatcher.Invoke([Func[Object]] {
-                        return [System.Windows.MessageBox]::Show("FFmpeg is not installed.`n`nInstall now?", "Missing Dependency", 'YesNo', 'Question')
-                    })
-                if ($result -eq 'Yes') {
-                    if (-not (Install-WithProgress-RS "FFmpeg" "ffmpeg")) {
-                        $dispatcher.Invoke([Action] {
-                                [System.Windows.MessageBox]::Show("Failed to install FFmpeg.", "Error", 'OK', 'Error')
-                            })
-                        return $false
-                    }
-                }
-                else {
-                    return $false
-                }
-            }
-        
-            $dispatcher.Invoke([Action] {
-                    $txtStatusBar.Text = "Ready"
-                })
-            return $true
-        }) | Out-Null
-    $ps.AddArgument($Window.Dispatcher)
-    $ps.AddArgument($Window.FindName("TxtStatusBar"))
-    $ps.AddArgument($Window)
-    
-    $handle = $ps.BeginInvoke()
-    
-    $timer = New-Object System.Windows.Threading.DispatcherTimer
-    $timer.Interval = [TimeSpan]::FromMilliseconds(200)
-    $timer.Add_Tick({
-            if ($handle.IsCompleted) {
-                $timer.Stop()
-                $success = $ps.EndInvoke($handle)
-                if (-not $success) {
-                    [System.Windows.MessageBox]::Show("Application cannot continue without required dependencies.", "Error", 'OK', 'Error')
-                    $Window.Close()
-                }
-            }
-        })
-    $timer.Start()
+function Install-FFmpeg {
+    Write-Host "=========================================="
+    Write-Host "Installing FFmpeg"
+    Write-Host "=========================================="
+    Write-Host "Launching installation in a new window..."
+    $ffmpegCmd = 'call refreshenv && echo Installing FFmpeg via Chocolatey... && choco install ffmpeg -y && echo. && echo FFmpeg installation completed. && pause'
+    Start-Process cmd -ArgumentList "/k", $ffmpegCmd
 }
 
 # ==============================================================================
@@ -679,8 +326,12 @@ $MainXaml = @"
 
         <!-- Status Bar -->
         <Grid Grid.Row="4" Margin="0,20,0,0">
-            <TextBlock x:Name="TxtStatusBar" Text="Status: Idle" Foreground="#AAAAAA"/>
-
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" x:Name="TxtStatusBar" Text="Ready" Foreground="#AAAAAA" VerticalAlignment="Center"/>
+            <Button Grid.Column="1" x:Name="BtnHelp" Content="?" Style="{x:Null}" Background="Transparent" Foreground="#BB86FC" BorderThickness="0" FontSize="20" FontWeight="Bold" HorizontalAlignment="Right" VerticalAlignment="Center" Cursor="Hand" Margin="0,0,5,0" Padding="10,0"/>
         </Grid>
     </Grid>
 </Window>
@@ -716,6 +367,35 @@ function Convert-XamlToObject {
 # ==============================================================================
 # Runspace & Background Tasks
 # ==============================================================================
+
+$InstallXaml = @"
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Install Dependencies" Height="250" Width="300"
+        Background="#121212" Foreground="#E0E0E0"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize">
+    $ResourceXaml
+    <Grid Margin="20">
+        <StackPanel VerticalAlignment="Center">
+            <TextBlock Text="Install Dependencies" FontSize="18" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,0,0,20"/>
+            <Button x:Name="BtnInstallChoco" Content="Install Chocolatey" Margin="0,0,0,10"/>
+            <Button x:Name="BtnInstallYtdlp" Content="Install yt-dlp" Margin="0,0,0,10"/>
+            <Button x:Name="BtnInstallFfmpeg" Content="Install FFmpeg" Margin="0,0,0,10"/>
+        </StackPanel>
+    </Grid>
+</Window>
+"@
+
+function Show-InstallDialog {
+    $script:InstallDialog = Convert-XamlToObject $InstallXaml
+    $script:InstallDialog.Owner = $Window
+    
+    $script:BtnInstallChoco.Add_Click({ Install-Choco })
+    $script:BtnInstallYtdlp.Add_Click({ Install-YTDLP })
+    $script:BtnInstallFfmpeg.Add_Click({ Install-FFmpeg })
+    
+    $script:InstallDialog.ShowDialog() | Out-Null
+}
 
 $script:RunspacePool = [RunspaceFactory]::CreateRunspacePool(1, 5)
 $script:RunspacePool.ApartmentState = "STA"
@@ -1196,9 +876,8 @@ $Window.Add_Closing({
         $script:RunspacePool.Close()
     })
 
-# Start dependency check after window is loaded (register BEFORE Show)
-$Window.Add_Loaded({
-        Start-DependencyCheck
+$BtnHelp.Add_Click({
+        Show-InstallDialog
     })
 
 # Start WPF message loop (ShowDialog blocks until window closes)
